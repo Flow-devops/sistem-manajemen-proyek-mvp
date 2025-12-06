@@ -1,33 +1,46 @@
-# 1. METADATA PROYEK
-name: nama_proyek_anda 
-description: Sebuah sistem manajemen proyek flow MVP.
-publish_to: 'none' # Mencegah publikasi otomatis
-
+name: flow
+description: Real moment, Real circle
+publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0' # Versi Dart SDK yang didukung
+  sdk: '>=3.0.0 <4.0.0'
 
-# 2. DEPENDENSI (PACKAGE/LIBRARY)
+# DEPENDENCIES (Library Utama Aplikasi)
 dependencies:
   flutter:
     sdk: flutter
-  
+
+  # Library Pihak Ketiga
   provider: ^6.1.2
   flutter_dotenv: ^5.1.0
-
-  # DEPENDENSI UNTUK PROYEK FLOW ANDA
-  supabase_flutter: ^2.0.0 
+  supabase_flutter: ^2.0.0
   firebase_core: ^2.25.3
   firebase_messaging: ^14.7.14
+  camera: ^0.10.5+9 # Gunakan versi terbaru yang stabil
+  path_provider: ^2.1.1 # Untuk menyimpan file kamera
+  image_picker: ^1.0.4    # Versi sesuaikan dengan yang terbaru
 
-# 3. KONFIGURASI KHUSUS FLUTTER
+# DEV_DEPENDENCIES (Library untuk Pengembangan)
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+  flutter_launcher_icons: ^0.13.1
+  camera: ^0.10.5+9 # Gunakan versi stabil terbaru
+  path_provider: ^2.1.1 # Diperlukan untuk menyimpan foto sementara
+
+# Konfigurasi Icon
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: false
+  image_path: "assets/images/logoapk.png"
+  min_sdk_android: 21
+
+# Konfigurasi Flutter Assets
 flutter:
   uses-material-design: true
-  
-  # fonts:
-  # assets:
 
   assets:
-  - .env
-  - assets/images/logo.png
+    - .env
+    - assets/images/logo.png

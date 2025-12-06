@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reset Password</title>
+</head>
+<body>
+    <html>
+<body>
+  <h2>Reset Password</h2>
+  <input id="password" type="password" placeholder="Password baru" />
+  <button onclick="submitPassword()">Ubah Password</button>
+
+    <script>
+function getToken() {
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    return params.get("access_token");
+}
+
+async function submitPassword() {
+    const newPassword = document.getElementById("password").value;
+    const token = getToken();
+
+    const res = await fetch("http://localhost:3000/api/reset-password", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ newPassword })
+    });
+
+    const data = await res.json();
+    alert(JSON.stringify(data));
+}
+</script>
+
+</body>
+</html>

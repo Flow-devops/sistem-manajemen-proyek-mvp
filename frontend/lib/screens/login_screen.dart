@@ -78,29 +78,11 @@ class _LoginScreenState extends State<LoginScreen> {
                   Center(
                     child: Image.asset(
                       'assets/images/logo.png',
-                      width: 120, // ukuran logo
-                      height: 120,
+                      width: 360, // ukuran logo
+                      height: 360,
                     ),
                   ),
                   const SizedBox(height: 16),
-
-                  // Title
-                  Text(
-                    'Flow',
-                    style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'FLOW',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey[600],
-                        ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 48),
 
                   // Email Field
                   TextFormField(

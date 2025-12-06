@@ -1,0 +1,3 @@
+bash
+   flutter pub get
+   
