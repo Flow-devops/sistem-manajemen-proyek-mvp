@@ -4,16 +4,20 @@ import '../services/auth_service.dart';
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
-  
+
   User? _currentUser;
   Map<String, dynamic>? _userProfile;
   bool _isLoading = false;
   String? _errorMessage;
 
   User? get currentUser => _currentUser;
+
   Map<String, dynamic>? get userProfile => _userProfile;
+
   bool get isLoading => _isLoading;
+
   String? get errorMessage => _errorMessage;
+
   bool get isAuthenticated => _currentUser != null;
 
   AuthProvider() {
@@ -21,27 +25,21 @@ class AuthProvider extends ChangeNotifier {
   }
 
   void _init() {
-    // Listen to auth state changes
     _authService.authStateChanges.listen((AuthState data) {
       _currentUser = data.session?.user;
+
       if (_currentUser != null) {
         _loadUserProfile();
       } else {
         _userProfile = null;
       }
+
       notifyListeners();
     });
-
-    // Check initial session
-    _currentUser = _authService.currentUser;
-    if (_currentUser != null) {
-      _loadUserProfile();
-    }
   }
 
   Future<void> _loadUserProfile() async {
     if (_currentUser == null) return;
-    
     try {
       _userProfile = await _authService.getUserProfile(_currentUser!.id);
       notifyListeners();
@@ -50,28 +48,29 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // PERBAIKAN SIGN UP: Paksa reset state sebelum daftar baru
   Future<bool> signUp({
     required String email,
     required String password,
-    required String fullName,
+    required String username,
+    String? fullName,
   }) async {
     _setLoading(true);
     _clearError();
+
+    // Pastikan memori bersih dari akun sebelumnya
+    _currentUser = null;
+    _userProfile = null;
 
     try {
       final response = await _authService.signUp(
         email: email,
         password: password,
+        username: username,
         fullName: fullName,
       );
 
-      if (response.user != null) {
-        _setLoading(false);
-        return true;
-      } else {
-        _setError('Gagal mendaftar. Silakan coba lagi.');
-        return false;
-      }
+      return response.user != null;
     } catch (e) {
       _setError(e.toString());
       return false;
@@ -88,36 +87,12 @@ class AuthProvider extends ChangeNotifier {
     _clearError();
 
     try {
-      final response = await _authService.signIn(
-        email: email,
-        password: password,
-      );
-
-      if (response.user != null) {
-        _setLoading(false);
-        return true;
-      } else {
-        _setError('Gagal login. Silakan coba lagi.');
-        return false;
-      }
+      final response =
+      await _authService.signIn(email: email, password: password);
+      return response.user != null;
     } catch (e) {
       _setError(e.toString());
       return false;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  Future<void> signOut() async {
-    _setLoading(true);
-    _clearError();
-
-    try {
-      await _authService.signOut();
-      _currentUser = null;
-      _userProfile = null;
-    } catch (e) {
-      _setError(e.toString());
     } finally {
       _setLoading(false);
     }
@@ -126,16 +101,35 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> resetPassword(String email) async {
     _setLoading(true);
     _clearError();
-
     try {
       await _authService.resetPassword(email);
-      _setLoading(false);
       return true;
     } catch (e) {
       _setError(e.toString());
       return false;
     } finally {
       _setLoading(false);
+    }
+  }
+
+  // PERBAIKAN SIGNOUT: Pastikan notifyListeners memicu AuthGate
+  Future<void> signOut() async {
+    _setLoading(true);
+    _clearError();
+    try {
+      await _authService.signOut();
+
+      // Reset manual untuk keamanan ganda
+      _currentUser = null;
+      _userProfile = null;
+
+      // Memberitahu AuthGate secara instan untuk ganti ke LoginScreen
+      notifyListeners();
+    } catch (e) {
+      _setError(e.toString());
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 

@@ -10,20 +10,16 @@ class AuthGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
-      builder: (context, authProvider, _) {
-        // Show loading screen saat check initial session
-        
-        if (authProvider.isLoading && authProvider.currentUser == null) {
+      builder: (context, auth, _) {
+        // Loading hanya saat inisialisasi pertama
+        if (auth.isLoading && auth.currentUser == null) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
-        
 
-        // Redirect based on authentication status
-        if (authProvider.isAuthenticated) {
+        // SATU-SATUNYA KUNCI
+        if (auth.currentUser != null) {
           return const HomeScreen();
         } else {
           return const LoginScreen();

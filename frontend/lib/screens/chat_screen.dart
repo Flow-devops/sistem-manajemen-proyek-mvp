@@ -1,300 +1,365 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
-import '../main.dart'; // Import untuk menggunakan variabel global 'supabase'
-
-// --- CHAT SCREEN WIDGET UTAMA ---
+import 'add_friend_screen.dart';
 
 class ChatScreen extends StatefulWidget {
-  final String friendId;      // ID Teman yang dikirim dari HomeScreen
-  final String friendName;    // Nama Teman
-  final String? friendAvatar; // Foto Teman (opsional)
-
-  const ChatScreen({
-    super.key,
-    required this.friendId,
-    required this.friendName,
-    this.friendAvatar,
-  });
+  const ChatScreen({super.key});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
 class _ChatScreenState extends State<ChatScreen> {
-  final TextEditingController _messageController = TextEditingController();
-
-  // NOTE: Stream Supabase Realtime akan diinisiasi di sini
-  // late Stream<List<Map<String, dynamic>>> _messagesStream;
+  final supabase = Supabase.instance.client;
+  bool loading = true;
+  List<Map<String, dynamic>> chatRooms = [];
 
   @override
   void initState() {
     super.initState();
-    // Di sini Anda akan menginisiasi _messagesStream untuk mengambil data chat real-time
+    _loadChatRooms();
   }
 
-  @override
-  void dispose() {
-    _messageController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _handleSend() async {
-    if (!mounted) return;
-    if (_messageController.text.trim().isEmpty) return;
-
-    final text = _messageController.text.trim();
-    _messageController.clear();
-
-    // Logika pengiriman pesan ke Supabase (Placeholder)
+  Future<void> _loadChatRooms() async {
+    setState(() => loading = true);
     try {
-      // Logic Supabase insert pesan (akan diaktifkan saat database siap)
-      // await supabase.from('messages').insert({
-      //   'sender_id': supabase.auth.currentUser!.id,
-      //   'receiver_id': widget.friendId,
-      //   'text': text,
-      //   'created_at': DateTime.now().toIso8601String(),
-      // });
-      print('Message sent: $text');
+      final myId = supabase.auth.currentUser!.id;
+      final rooms = await supabase
+          .from('chat_rooms')
+          .select('id, user1_id, user2_id')
+          .or('user1_id.eq.$myId,user2_id.eq.$myId');
 
+      final List<Map<String, dynamic>> temp = [];
+
+      for (final room in rooms) {
+        final friendId =
+        room['user1_id'] == myId ? room['user2_id'] : room['user1_id'];
+
+        final profile = await supabase
+            .from('profiles')
+            .select('id, username, avatar_url')
+            .eq('id', friendId)
+            .single();
+
+        temp.add({
+          'room_id': room['id'],
+          'friend_id': friendId,
+          'username': profile['username'],
+          'avatar': profile['avatar_url'],
+        });
+      }
+
+      setState(() {
+        chatRooms = temp;
+        loading = false;
+      });
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal mengirim pesan: ${e.toString()}')),
-      );
+      debugPrint('Error load chat rooms: $e');
+      setState(() {
+        chatRooms = [];
+        loading = false;
+      });
     }
   }
 
-  // Widget Input Area (Bottom Bar)
-  Widget _chatInput() {
-    return Container(
-      padding: const EdgeInsets.only(left: 10, right: 10, top: 8, bottom: 20),
-      decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(top: BorderSide(color: Color(0xFFF5F5F5))),
-          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, -2))]
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.attachment, color: Colors.grey),
-            onPressed: () {},
-          ),
-
-          Expanded(
-            child: TextField(
-              controller: _messageController,
-              onSubmitted: (_) => _handleSend(),
-              decoration: InputDecoration(
-                hintText: 'Ketik pesan...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(25),
-                  borderSide: BorderSide.none,
-                ),
-                filled: true,
-                fillColor: Colors.grey[50],
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.tag_faces_outlined, color: Colors.grey),
-                  onPressed: () {},
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-
-          // Tombol Kirim (Send)
-          Container(
-            width: 45,
-            height: 45,
-            decoration: BoxDecoration(
-              color: Colors.blue[500],
-              shape: BoxShape.circle,
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.send, color: Colors.white, size: 20),
-              onPressed: _handleSend,
-            ),
-          ),
-        ],
+  void _openChatRoom(String roomId, String username) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatRoomScreen(roomId: roomId, username: username),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Contoh data dummy untuk demonstrasi UI
-    const dummyMessages = [
-      {'sender_id': 'OTHER_ID', 'text': 'Can i Share a picture', 'created_at': '2025-12-03T22:31:00Z'},
-      {'sender_id': 'MY_ID', 'text': 'Sure, I\'m waiting buddy', 'created_at': '2025-12-03T22:32:00Z'},
-      {'sender_id': 'OTHER_ID', 'text': 'HY', 'created_at': '2025-12-03T22:30:00Z'},
-      {'sender_id': 'MY_ID', 'text': 'Thanks!', 'created_at': '2025-12-03T22:33:00Z'},
-    ];
-
     return Scaffold(
-      // --- HEADER ---
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        title: Row(
-          children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundImage: widget.friendAvatar != null
-                  ? NetworkImage(widget.friendAvatar!)
-                  : null,
-              child: widget.friendAvatar == null
-                  ? const Icon(Icons.person, size: 18, color: Colors.white)
-                  : null,
-            ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(widget.friendName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-                Text(
-                    'Online Now',
-                    style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.white.withOpacity(0.8) // Opacity fix
-                    )
-                ),
-              ],
-            ),
-          ],
+        elevation: 0,
+        backgroundColor: Colors.white,
+        centerTitle: true,
+        leading: IconButton(
+          icon: const Icon(
+              Icons.arrow_back_ios_new, size: 20, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          "Messages",
+          style: TextStyle(
+              color: Colors.black, fontWeight: FontWeight.bold, fontSize: 20),
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.more_vert),
-            onPressed: () {},
+            icon: const Icon(Icons.person_add_alt_1, color: Colors.blueGrey),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const SearchFriendScreen()),
+              ).then((_) => _loadChatRooms());
+            },
           ),
+          const SizedBox(width: 8),
         ],
       ),
-
-      // --- MESSAGES AREA ---
-      body: Column(
-        children: [
-          Expanded(
-            // Placeholder List for messages
-            child: ListView.builder(
-              reverse: true,
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 15),
-              itemCount: dummyMessages.length,
-              itemBuilder: (context, index) {
-                final message = dummyMessages[index];
-                // Asumsi: 'MY_ID' akan diganti dengan ID pengguna yang sebenarnya saat real-time
-                final isMe = message['sender_id'] == 'MY_ID';
-
-                return MessageBubble(
-                  message: message['text'] ?? 'Pesan Kosong',
-                  isMe: isMe,
-                  // FIX: Memastikan String dikonversi dengan benar
-                  timestamp: DateTime.parse(message['created_at']! as String),
-                  avatarUrl: widget.friendAvatar,
-                );
-              },
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : chatRooms.isEmpty
+          ? _buildEmptyState()
+          : ListView.separated(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        itemCount: chatRooms.length,
+        separatorBuilder: (context, index) =>
+        const Divider(height: 1, indent: 85),
+        itemBuilder: (context, index) {
+          final room = chatRooms[index];
+          return ListTile(
+            onTap: () => _openChatRoom(room['room_id'], room['username']),
+            contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16, vertical: 4),
+            leading: CircleAvatar(
+              radius: 30,
+              backgroundColor: Colors.blue[50],
+              backgroundImage: room['avatar'] != null
+                  ? NetworkImage(room['avatar'])
+                  : const AssetImage(
+                  'assets/avatar_default.png') as ImageProvider,
             ),
-          ),
+            title: Text(
+              room['username'],
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            subtitle: const Text(
+              "Tap to start conversation",
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: Colors.grey, fontSize: 14),
+            ),
+            trailing: const Icon(
+                Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+          );
+        },
+      ),
+    );
+  }
 
-          // --- INPUT AREA ---
-          _chatInput(),
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.chat_bubble_outline, size: 80, color: Colors.grey[300]),
+          const SizedBox(height: 16),
+          const Text("Belum ada chat",
+              style: TextStyle(color: Colors.grey, fontSize: 16)),
         ],
       ),
     );
   }
 }
 
+class ChatRoomScreen extends StatefulWidget {
+  final String roomId;
+  final String username;
 
-// --- WIDGET BUBBLE PESAN KUSTOM ---
+  const ChatRoomScreen(
+      {super.key, required this.roomId, required this.username});
 
-class MessageBubble extends StatelessWidget {
-  final String message;
-  final bool isMe;
-  final DateTime timestamp;
-  final String? avatarUrl;
+  @override
+  State<ChatRoomScreen> createState() => _ChatRoomScreenState();
+}
 
-  const MessageBubble({
-    super.key,
-    required this.message,
-    required this.isMe,
-    required this.timestamp,
-    this.avatarUrl,
-  });
+class _ChatRoomScreenState extends State<ChatRoomScreen> {
+  final supabase = Supabase.instance.client;
+  final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  List<Map<String, dynamic>> messages = [];
+  late final Stream<List<Map<String, dynamic>>> _messagesStream;
 
-  String _formatTime(DateTime date) {
-    return date.hour.toString().padLeft(2, '0') +
-        ':' +
-        date.minute.toString().padLeft(2, '0');
+  @override
+  void initState() {
+    super.initState();
+    _messagesStream = supabase
+        .from('messages')
+        .stream(primaryKey: ['id'])
+        .eq('room_id', widget.roomId)
+        .order('created_at')
+        .map((event) => event.map((e) => e as Map<String, dynamic>).toList());
+
+    _messagesStream.listen((event) {
+      if (mounted) {
+        setState(() => messages = event);
+        _scrollToBottom();
+      }
+    });
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  Future<void> _sendMessage() async {
+    final content = _controller.text.trim();
+    if (content.isEmpty) return;
+
+    final userId = supabase.auth.currentUser!.id;
+    _controller.clear();
+
+    try {
+      await supabase.from('messages').insert({
+        'room_id': widget.roomId,
+        'sender_id': userId,
+        'content': content,
+        'created_at': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      debugPrint("Error sending message: $e");
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: Row(
-        mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          // Avatar Teman (Jika bukan pesan saya)
-          if (!isMe) ...[
-            CircleAvatar(
-              radius: 12,
-              backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl!) : null,
-              child: avatarUrl == null ? const Icon(Icons.person, size: 12, color: Colors.white) : null,
-              backgroundColor: Colors.grey,
-            ),
-            const SizedBox(width: 8),
-          ],
+    final userId = supabase.auth.currentUser!.id;
 
-          // Kotak Pesan
+    return Scaffold(
+      backgroundColor: const Color(0xFFF6F6F6),
+      appBar: AppBar(
+        title: Text(widget.username, style: const TextStyle(
+            color: Colors.black, fontSize: 18, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
+        elevation: 0.5,
+        iconTheme: const IconThemeData(color: Colors.black),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              controller: _scrollController,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+              itemCount: messages.length,
+              itemBuilder: (context, index) {
+                final msg = messages[index];
+                final isMe = msg['sender_id'] == userId;
+
+                // Format Waktu
+                final DateTime time = DateTime
+                    .parse(msg['created_at'])
+                    .toLocal();
+                final String formattedTime = "${time.hour.toString().padLeft(
+                    2, '0')}:${time.minute.toString().padLeft(2, '0')}";
+
+                return _buildChatBubble(msg['content'], isMe, formattedTime);
+              },
+            ),
+          ),
+          _buildInputArea(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChatBubble(String content, bool isMe, String time) {
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Column(
+        crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment
+            .start,
+        children: [
           Container(
-            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+            margin: const EdgeInsets.symmetric(vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            constraints: BoxConstraints(maxWidth: MediaQuery
+                .of(context)
+                .size
+                .width * 0.75),
             decoration: BoxDecoration(
-              color: isMe ? Colors.blue[500] : Colors.white,
+              color: isMe ? const Color(0xFF007AFF) : Colors.white,
               borderRadius: BorderRadius.only(
-                topLeft: const Radius.circular(15),
-                topRight: const Radius.circular(15),
-                bottomLeft: isMe ? const Radius.circular(15) : Radius.zero,
-                bottomRight: isMe ? Radius.zero : const Radius.circular(15),
+                topLeft: const Radius.circular(18),
+                topRight: const Radius.circular(18),
+                bottomLeft: Radius.circular(isMe ? 18 : 0),
+                bottomRight: Radius.circular(isMe ? 0 : 18),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withOpacity(0.04),
                   blurRadius: 4,
-                ),
+                  offset: const Offset(0, 2),
+                )
               ],
             ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 10.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    message,
-                    style: TextStyle(
-                      color: isMe ? Colors.white : Colors.black87,
-                      fontSize: 14.0,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _formatTime(timestamp), // Timestamp kecil
-                    style: TextStyle(
-                      fontSize: 10.0,
-                      color: isMe ? Colors.white70 : Colors.grey[400],
-                    ),
-                  ),
-                ],
+            child: Text(
+              content,
+              style: TextStyle(
+                color: isMe ? Colors.white : Colors.black87,
+                fontSize: 15,
               ),
             ),
           ),
-
-          // Spacer dan Avatar Saya (Opsional)
-          if (isMe) const SizedBox(width: 8),
-          if (isMe) const CircleAvatar(radius: 12, child: Icon(Icons.person, size: 12, color: Colors.white)),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10, left: 4, right: 4),
+            child: Text(
+              time,
+              style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildInputArea() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -2))
+        ],
+      ),
+      child: SafeArea(
+        child: Row(
+          children: [
+            Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                child: TextField(
+                  controller: _controller,
+                  maxLines: null,
+                  decoration: const InputDecoration(
+                    hintText: "Type a message...",
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 10),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: _sendMessage,
+              child: const CircleAvatar(
+                backgroundColor: Color(0xFF000000),
+                radius: 22,
+                child: Icon(Icons.send, color: Colors.white, size: 20),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
