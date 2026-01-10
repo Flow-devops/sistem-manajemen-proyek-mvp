@@ -1,19 +1,28 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
-import 'package:device_preview/device_preview.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'providers/auth_provider.dart';
 import 'screens/auth_gate.dart';
+import 'services/notification_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load environment variables
+  // 1. Load environment variables
   await dotenv.load(fileName: ".env");
 
-  // Initialize Supabase
+  // 2. Initialize Firebase
+  try {
+    await Firebase.initializeApp();
+    // 3. Initialize Notification Service
+    await NotificationService.initialize();
+  } catch (e) {
+    debugPrint('Firebase initialization failed: $e');
+  }
+
+  // 4. Initialize Supabase
   await Supabase.initialize(
     url: dotenv.env['SUPABASE_URL']!,
     anonKey: dotenv.env['SUPABASE_ANON_KEY']!,
@@ -24,15 +33,11 @@ Future<void> main() async {
   );
 
   runApp(
-    DevicePreview(
-      enabled: !kReleaseMode,
-      builder: (context) =>
-          MultiProvider(
-            providers: [
-              ChangeNotifierProvider(create: (_) => AuthProvider()),
-            ],
-            child: const MyApp(),
-          ),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+      ],
+      child: const MyApp(),
     ),
   );
 }
@@ -43,26 +48,15 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      // Sinkronisasi DevicePreview
-      useInheritedMediaQuery: true,
-      locale: DevicePreview.locale(context),
-      builder: DevicePreview.appBuilder,
-
-      title: 'Flow - Project Management',
+      title: 'FLOW',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
+          seedColor: const Color(0xFF1CBABE),
           brightness: Brightness.light,
         ),
         useMaterial3: true,
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.grey[50],
-        ),
       ),
-      // PERBAIKAN: AuthGate diletakkan langsung sebagai home.
-      // Logika loading dipindahkan ke dalam AuthGate atau dibungkus Consumer secara spesifik.
       home: const AuthGate(),
     );
   }

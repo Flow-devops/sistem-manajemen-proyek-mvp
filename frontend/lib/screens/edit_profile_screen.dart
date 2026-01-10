@@ -27,6 +27,51 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _loadProfile();
   }
 
+  void _showTopNotification(String message, {bool isError = false}) {
+    if (!mounted) return;
+    OverlayState? overlayState = Overlay.of(context);
+    late OverlayEntry overlayEntry;
+    overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: MediaQuery.of(context).padding.top + 10,
+        left: 20,
+        right: 20,
+        child: Material(
+          color: Colors.transparent,
+          child: TweenAnimationBuilder(
+            duration: const Duration(milliseconds: 500),
+            tween: Tween<double>(begin: -100, end: 0),
+            curve: Curves.easeOutBack,
+            builder: (context, double value, child) {
+              return Transform.translate(offset: Offset(0, value), child: child);
+            },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: isError ? Colors.redAccent.withOpacity(0.9) : const Color(0xFF1CBABE).withOpacity(0.9),
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 5))],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(isError ? Icons.error_outline : Icons.check_circle_outline, color: Colors.white, size: 20),
+                  const SizedBox(width: 10),
+                  Flexible(child: Text(message, style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.w500, fontSize: 14))),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    overlayState.insert(overlayEntry);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (overlayEntry.mounted) overlayEntry.remove();
+    });
+  }
+
   Future<void> _loadProfile() async {
     setState(() => _isLoading = true);
     try {
@@ -54,7 +99,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _pickImage() async {
     final picked = await ImagePicker().pickImage(
       source: ImageSource.gallery,
-      imageQuality: 70, // Kompresi gambar agar upload lebih cepat
+      imageQuality: 70,
     );
     if (picked != null) {
       setState(() => _image = File(picked.path));
@@ -62,12 +107,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
-    if (_usernameController.text
-        .trim()
-        .isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Username cannot be empty")),
-      );
+    if (_usernameController.text.trim().isEmpty) {
+      _showTopNotification("Username cannot be empty", isError: true);
       return;
     }
 
@@ -78,11 +119,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       String? avatarUrl = _existingAvatarUrl;
 
-      // Upload gambar jika ada yang baru dipilih
       if (_image != null) {
-        final path = 'avatars/${user.id}_${DateTime
-            .now()
-            .millisecondsSinceEpoch}.jpg';
+        final path = 'avatars/${user.id}_${DateTime.now().millisecondsSinceEpoch}.jpg';
         await supabase.storage.from('avatars').upload(
           path,
           _image!,
@@ -98,16 +136,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }).eq('id', user.id);
 
       if (mounted) {
-        Navigator.pop(
-            context, true); // Berikan feedback true ke layar sebelumnya
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Profile updated successfully!")),
-        );
+        Navigator.pop(context, true);
+        _showTopNotification("Profile updated successfully!");
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Update failed: $e")),
-      );
+      _showTopNotification("Update failed: $e", isError: true);
     } finally {
       setState(() => _isLoading = false);
     }
@@ -119,21 +152,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Background Gradient Soft
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Colors.blueGrey.shade50, Colors.white],
-              ),
-            ),
-          ),
-
           SafeArea(
-            child: _isLoading && _usernameController.text.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : Column(
+            child: Column(
               children: [
                 _buildAppBar(),
                 Expanded(
@@ -155,9 +175,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           ),
 
           if (_isLoading)
-            Container(
-              color: Colors.black26,
-              child: const Center(child: CircularProgressIndicator()),
+            Positioned.fill(
+              child: Container(
+                color: Colors.black.withOpacity(0.3),
+                child: const Center(
+                  child: CircularProgressIndicator(
+                    color: Color(0xFF1CBABE),
+                  ),
+                ),
+              ),
             ),
         ],
       ),
@@ -182,7 +208,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               color: Colors.black87,
             ),
           ),
-          const SizedBox(width: 48), // Spacer agar teks tetap di tengah
+          const SizedBox(width: 48),
         ],
       ),
     );
@@ -210,8 +236,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               backgroundImage: _image != null
                   ? FileImage(_image!)
                   : (_existingAvatarUrl != null
-                  ? NetworkImage(_existingAvatarUrl!)
-                  : null) as ImageProvider?,
+                      ? NetworkImage(_existingAvatarUrl!)
+                      : null) as ImageProvider?,
               child: (_image == null && _existingAvatarUrl == null)
                   ? const Icon(Icons.person, size: 60, color: Colors.grey)
                   : null,
@@ -225,11 +251,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: const BoxDecoration(
-                  color: Colors.blueGrey,
+                  color: Color(0xFF1CBABE),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
-                    Icons.camera_alt, color: Colors.white, size: 20),
+                child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
               ),
             ),
           ),
@@ -277,22 +302,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ),
             child: Row(
               children: [
-                const Icon(
-                    Icons.cake_outlined, size: 20, color: Colors.black54),
+                const Icon(Icons.cake_outlined, size: 20, color: Colors.black54),
                 const SizedBox(width: 12),
                 Text(
                   _birthday == null
                       ? "Select birthday"
-                      : "${_birthday!.day}/${_birthday!.month}/${_birthday!
-                      .year}",
+                      : "${_birthday!.day}/${_birthday!.month}/${_birthday!.year}",
                   style: GoogleFonts.poppins(
                     fontSize: 15,
                     color: _birthday == null ? Colors.black38 : Colors.black87,
                   ),
                 ),
                 const Spacer(),
-                const Icon(
-                    Icons.calendar_today, size: 16, color: Colors.black38),
+                const Icon(Icons.calendar_today, size: 16, color: Colors.black38),
               ],
             ),
           ),
@@ -321,7 +343,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       child: ElevatedButton(
         onPressed: _isLoading ? null : _saveProfile,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blueGrey.shade800,
+          backgroundColor: const Color(0xFF1CBABE),
           foregroundColor: Colors.white,
           minimumSize: const Size.fromHeight(55),
           elevation: 0,

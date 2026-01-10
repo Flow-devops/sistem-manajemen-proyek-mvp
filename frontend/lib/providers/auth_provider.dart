@@ -11,13 +11,9 @@ class AuthProvider extends ChangeNotifier {
   String? _errorMessage;
 
   User? get currentUser => _currentUser;
-
   Map<String, dynamic>? get userProfile => _userProfile;
-
   bool get isLoading => _isLoading;
-
   String? get errorMessage => _errorMessage;
-
   bool get isAuthenticated => _currentUser != null;
 
   AuthProvider() {
@@ -48,7 +44,11 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // PERBAIKAN SIGN UP: Paksa reset state sebelum daftar baru
+  // Method publik untuk memuat ulang profil setelah update
+  Future<void> refreshProfile() async {
+    await _loadUserProfile();
+  }
+
   Future<bool> signUp({
     required String email,
     required String password,
@@ -58,7 +58,6 @@ class AuthProvider extends ChangeNotifier {
     _setLoading(true);
     _clearError();
 
-    // Pastikan memori bersih dari akun sebelumnya
     _currentUser = null;
     _userProfile = null;
 
@@ -112,18 +111,13 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // PERBAIKAN SIGNOUT: Pastikan notifyListeners memicu AuthGate
   Future<void> signOut() async {
     _setLoading(true);
     _clearError();
     try {
       await _authService.signOut();
-
-      // Reset manual untuk keamanan ganda
       _currentUser = null;
       _userProfile = null;
-
-      // Memberitahu AuthGate secara instan untuk ganti ke LoginScreen
       notifyListeners();
     } catch (e) {
       _setError(e.toString());
